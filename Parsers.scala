@@ -16,8 +16,7 @@ class Arith extends JavaTokenParsers {
 
 object Prim extends Enumeration {
     type Prim = Value
-    val Square, Triangle, Circle = Value
-}
+    val Square, Triangle, Circle = Value}
 import Prim._
 
 abstract class Expr
@@ -29,19 +28,27 @@ case class ShapeInstance(name: String) extends Expr
 case class AdjustOperation(op: String, args: Seq[Expr]) extends Expr
 case class ShapeAdjust(ops: Seq[AdjustOperation]) extends Expr
 case class ArithOperation(op: String, opnd1: Expr, opnd2: Expr) extends Expr
+case class FuncCall(fname: String, args: Seq[Expr]) extends Expr
 case class ArgDecl(typename: String, name: String) extends Expr
 case class ArgList(args: Seq[ArgDecl]) extends Expr
+
+class WTF extends RegexParsers {
+    val CONST = """[0-9]+(\.[0-9]+)?"""r
+    def expr : Parser[Any] = 
+        ( (expr~"+"~expr) 
+        | CONST )
+}
 
 class CF3 extends RegexParsers {
     val IDENT = """[a-zA-Z]([a-zA-Z0-9]|_[a-zA-Z0-9])*"""r
     val CONST = """[0-9]+(\.[0-9]+)?"""r
     def expr : Parser[Expr] =
-        ( CONST ^^ { v => Const(v toFloat) }
-        | "(" ~> expr <~ ")"
-        | expr ~ binop ~ expr ^^ { case e1~op~e2 => ArithOperation(op, e1, e2) }
-        | unop ~ expr ^^ { case op~e1 => ArithOperation(op, Const(0.0f), e1) } )
-        // Need this too:
-        // | IDENT ~ "(" ~ expr ~ ")" ) ^^ { 
+        ( (expr~"+"~expr) ^^ { case e1~op~e2 => ArithOperation(op, e1, e2) }
+        | CONST ^^ { v => Const(v toFloat) })
+        //| "(" ~> expr <~ ")"
+        //| expr~binop~expr ^^ { case e1~op~e2 => ArithOperation(op, e1, e2) }
+        //| unop~expr ^^ { case op~e1 => ArithOperation(op, Const(0.0f), e1) }
+        //| IDENT ~ ("(" ~> arglist <~ ")")  ^^ { case f~l => FuncCall(f, l) } )
     def unop = ( "-" )
     def binop = ( "-" | "^" | "+" | "*" | "/" | "+-" | ".." | "..." | "<"
                 | ">" | "<=" | ">=" | "==" | "<>" | "&&" | "^^" )
@@ -53,8 +60,7 @@ class CF3 extends RegexParsers {
         (opt("rule" ~> opt(CONST)) ~ ("{" ~> rep(shape) <~ "}")) ^^
             { case None ~ s          => ShapeReplace(1.0f, s)
               case Some(None) ~ s    => ShapeReplace(1.0f, s)
-              case Some(Some(w)) ~ s => ShapeReplace(w toFloat, s) } // will fail with percents!
-    // Note that weight can be a percent too
+              case Some(Some(w)) ~ s => ShapeReplace(w toFloat, s) } // FIXME: will fail with percents!
     def argdecl: Parser[ArgList] =
         (repsep(opt(argtype) ~ IDENT, ",") ^^
             { l => ArgList(l.map({ case None~id    => ArgDecl("number", id)
@@ -62,86 +68,31 @@ class CF3 extends RegexParsers {
     def argtype = ("number" | "natural" | "adjustment" | "shape")
     def shape: Parser[Expr] =
         ( primitive ~ opt(adjust) ^^ { case prim~adj => prim }
-        | IDENT ~ ("(" ~> opt(arglist) <~ ")") ~ adjust  ^^ { case id~args~adj => ShapeInstance(id) } )
+        | IDENT ~ opt(("(" ~> opt(arglist) <~ ")")) ~ adjust ^^ { case id~args~adj => ShapeInstance(id) } )
     def arglist = repsep(expr, ",")
     def primitive: Parser[Expr] =
         ( "SQUARE"   ^^ { _ => ShapePrimitive(Prim.Square) }
         | "TRIANGLE" ^^ { _ => ShapePrimitive(Prim.Triangle) }
         | "CIRCLE"   ^^ { _ => ShapePrimitive(Prim.Circle) }  )
-    def adjust = "[" ~ rep(operation) ~ "]"
+    def adjust = "[" ~> rep(operation) <~ "]"
     def operation: Parser[Expr] =
         /*( "x" ~ expr | "x" ~ expr ~ expr
         | "x" ~ expr ~ expr ~ expr | "y" ~ expr | "z" ~ expr
         | "size" ~ expr | "s" ~ expr | "size" ~ expr ~ expr
         | "s" ~ expr ~ expr | "rotate" ~ expr | "r" ~ expr
         | "flip" ~ expr | "f" ~ expr | "skew" ~ expr ~ expr ) ^^*/
-        (IDENT ~ rep(expr) ^^
+        (IDENT ~ rep1(expr) ^^
             { case op~args => AdjustOperation(op, args) })
         // This is a coarse way to do things. I should change IDENT to something
         // else, and I must validate 'expr' further. 
-    
 }
 
-class SimpleCF extends RegexParsers {
-    val IDENT = """[a-zA-Z]([a-zA-Z0-9]|_[a-zA-Z0-9])*"""r
-    val CONSTANT = """[0-9]+(\.[0-9]+)?"""r
-    def expr : Parser[Any] = ( CONSTANT | "(" ~ expr ~ ")"
-               | expr ~ binop ~ expr | unop ~ expr | IDENT ~ "(" ~ expr ~ ")" )
-    def unop = ( "-" )
-    def binop = ( "-" | "^" | "+" | "*" | "/" | "+-" | ".." | "..." | "<"
-                | ">" | "<=" | ">=" | "==" | "<>" | "&&" | "^^" )
-    def shapedecl = ( "shape" ~ IDENT ~ shapereplace
-                    | "shape" ~ IDENT ~ "(" ~ argdecl ~ ")" ~ shapereplace)
-    def shapereplace = opt("rule" ~ opt(CONSTANT)) ~ "{" ~ rep(shape) ~ "}"
-    // Note that weight can be a percent too
-    def argdecl = repsep(opt(argtype) ~ IDENT, ",")
-    def argtype = ("number" | "natural" | "adjustment" | "shape")
-    def shape = ( primitive ~ opt(adjust)
-                | IDENT ~ opt(adjust)
-                | IDENT ~ "(" ~ arglist ~ ")" ~ adjust )
-    def arglist = repsep(expr, ",")
-    def primitive = ( "SQUARE" | "TRIANGLE" | "CIRCLE" )
-    def adjust = "[" ~ rep(operation) ~ "]"
-    def operation = ( "x" ~ expr | "x" ~ expr ~ expr
-                    | "x" ~ expr ~ expr ~ expr | "y" ~ expr | "z" ~ expr
-                    | "size" ~ expr | "s" ~ expr | "size" ~ expr ~ expr
-                    | "s" ~ expr ~ expr | "rotate" ~ expr | "r" ~ expr
-                    | "flip" ~ expr | "f" ~ expr | "skew" ~ expr ~ expr )
-    
-}
-
-class FullCF extends RegexParsers {
-    val IDENT = """[a-zA-Z]([a-zA-Z0-9]|_[a-zA-Z0-9])*"""r
-    val CONSTANT = """[0-9]+(\.[0-9]+)?"""r
-    def expr : Parser[Any] = ( CONSTANT | "(" ~ expr ~ ")"
-               | expr ~ binop ~ expr | unop ~ expr | IDENT ~ "(" ~ expr ~ ")" )
-    def unop = ( "-" )
-    def binop = ( "-" | "^" | "+" | "*" | "/" | "+-" | ".." | "..." | "<"
-                | ">" | "<=" | ">=" | "==" | "<>" | "&&" | "^^" )
-    def shapedecl = ( "shape" ~ IDENT ~ shapereplace
-                    | "shape" ~ IDENT ~ "(" ~ argdecl ~ ")" ~ shapereplace)
-    def shapereplace = opt("rule" ~ opt(CONSTANT)) ~ "{" ~ rep(shape) ~ "}"
-    // Note that weight can be a percent too
-    def argdecl = repsep(opt(argtype) ~ IDENT, ",")
-    def argtype = ("number" | "natural" | "adjustment" | "shape")
-    def shape = ( primitive ~ adjust
-                | IDENT ~ adjust
-                | IDENT ~ "(" ~ arglist ~ ")" ~ adjust )
-    def arglist = repsep(expr, ",")
-    def primitive = ( "SQUARE" | "TRIANGLE" | "CIRCLE" )
-    def adjust = "[" ~ rep(operation) ~ "]"
-    def operation = ( "x" ~ expr | "x" ~ expr ~ expr
-                    | "x" ~ expr ~ expr ~ expr | "y" ~ expr | "z" ~ expr
-                    | "size" ~ expr | "s" ~ expr | "size" ~ expr ~ expr
-                    | "s" ~ expr ~ expr | "rotate" ~ expr | "r" ~ expr
-                    | "flip" ~ expr | "f" ~ expr | "skew" ~ expr ~ expr )
-}
-
-object ParseExpr extends CF3 {
-    def main(args: Array[String]) {
+object ParseExpr extends WTF {
+    /*def main(args: Array[String]) {
         println("input : "+ args(0))
         println(parseAll(shapedecl, args(0)))
-    }
-    def parseStr(s: String) = parseAll(shapedecl, s)
+    }*/
+    //def parseStr(s: String) = parseAll(shapedecl, s)
+    def parseStrExpr(s: String) = parseAll(expr, s)
 }
 
