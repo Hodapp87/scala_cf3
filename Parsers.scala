@@ -1,12 +1,6 @@
 package Tests
 
 import scala.util.parsing.combinator._
-  
-class Arith extends JavaTokenParsers {   
-    def expr: Parser[Any] = term~rep("+"~term | "-"~term)
-    def term: Parser[Any] = factor~rep("*"~factor | "/"~factor)
-    def factor: Parser[Any] = floatingPointNumber | "("~expr~")"
-}
 
 // What we have is not _just_ an expression we must simplify, however, this
 // comes in at some point (as Context Free does have expressions we'll need to
@@ -23,59 +17,59 @@ abstract class Expr
 case class Const(constVal : Float) extends Expr
 case class ShapeDecl(name : String, repl : ShapeReplace) extends Expr
 case class ShapeReplace(weight : Float, shapes: Seq[Expr]) extends Expr
-case class ShapePrimitive(p: Prim) extends Expr
-case class ShapeInstance(name: String) extends Expr
+case class ShapePrimitive(p: Prim, adjust: Seq[AdjustOperation]) extends Expr
+case class ShapeInstance(name: String, adjust: Seq[AdjustOperation]) extends Expr
 case class AdjustOperation(op: String, args: Seq[Expr]) extends Expr
-case class ShapeAdjust(ops: Seq[AdjustOperation]) extends Expr
-case class ArithOperation(op: String, opnd1: Expr, opnd2: Expr) extends Expr
+case class ArithOperation(op: String, operand1: Expr, operand2: Expr) extends Expr
 case class FuncCall(fname: String, args: Seq[Expr]) extends Expr
 case class ArgDecl(typename: String, name: String) extends Expr
 case class ArgList(args: Seq[ArgDecl]) extends Expr
-
-class WTF extends RegexParsers {
-    val CONST = """[0-9]+(\.[0-9]+)?"""r
-    def expr : Parser[Any] = 
-        ( (expr~"+"~expr) 
-        | CONST )
-}
 
 class CF3 extends RegexParsers {
     val IDENT = """[a-zA-Z]([a-zA-Z0-9]|_[a-zA-Z0-9])*"""r
     val CONST = """[0-9]+(\.[0-9]+)?"""r
     def expr : Parser[Expr] =
-        ( (expr~"+"~expr) ^^ { case e1~op~e2 => ArithOperation(op, e1, e2) }
-        | CONST ^^ { v => Const(v toFloat) })
-        //| "(" ~> expr <~ ")"
-        //| expr~binop~expr ^^ { case e1~op~e2 => ArithOperation(op, e1, e2) }
-        //| unop~expr ^^ { case op~e1 => ArithOperation(op, Const(0.0f), e1) }
-        //| IDENT ~ ("(" ~> arglist <~ ")")  ^^ { case f~l => FuncCall(f, l) } )
+        (factor~rep(binop~factor) ^^
+            { case f~l => (f /: l)
+                { case (acc, op ~ operand) => ArithOperation(op, acc, operand) } }
+        |unop~factor ^^ { case op ~ f => ArithOperation(op, Const(0.0f), f)})
+    def factor : Parser[Expr] =
+        (CONST ^^ {x => Const(x toFloat)}
+        |"(" ~> expr <~ ")"
+        |IDENT ~ ("(" ~> repsep(expr, ",") <~ ")") ^^ { case f~args => FuncCall(f, args)})
     def unop = ( "-" )
-    def binop = ( "-" | "^" | "+" | "*" | "/" | "+-" | ".." | "..." | "<"
-                | ">" | "<=" | ">=" | "==" | "<>" | "&&" | "^^" )
-    // also, N.B. it need not be a pattern-matching function after
-    def shapedecl: Parser[Expr] =
+    // Yes, order matters here! Smaller items should go after larger ones if
+    // they begin the same way (or something like that)
+    def binop = ( "-" | "^^" | "+-" | "*" | "/" | "+" | "..." | ".." | "<="
+        | ">=" | "<>" | ">" | "<" | "==" | "&&" | "^" )
+    def shapedecl : Parser[Expr] =
         ("shape" ~> IDENT ~ opt("(" ~> argdecl <~ ")") ~ shapereplace) ^^
             { case id~arg~replace => ShapeDecl(id, replace) }
-    def shapereplace: Parser[ShapeReplace] =
+    def shapereplace : Parser[ShapeReplace] =
         (opt("rule" ~> opt(CONST)) ~ ("{" ~> rep(shape) <~ "}")) ^^
             { case None ~ s          => ShapeReplace(1.0f, s)
               case Some(None) ~ s    => ShapeReplace(1.0f, s)
               case Some(Some(w)) ~ s => ShapeReplace(w toFloat, s) } // FIXME: will fail with percents!
-    def argdecl: Parser[ArgList] =
+    def argdecl : Parser[ArgList] =
         (repsep(opt(argtype) ~ IDENT, ",") ^^
             { l => ArgList(l.map({ case None~id    => ArgDecl("number", id)
                                    case Some(t)~id => ArgDecl(t, id) } ))})
     def argtype = ("number" | "natural" | "adjustment" | "shape")
-    def shape: Parser[Expr] =
-        ( primitive ~ opt(adjust) ^^ { case prim~adj => prim }
-        | IDENT ~ opt(("(" ~> opt(arglist) <~ ")")) ~ adjust ^^ { case id~args~adj => ShapeInstance(id) } )
+    // TODO: Make this actually use adjustments:
+    // TODO: Make this use arguments too!
+    def shape : Parser[Expr] =
+        ( primitive ~ opt(adjust) ^^
+            { case prim~None => prim
+              case prim~Some(adj) => ShapePrimitive(prim.p, adj) }
+        | IDENT ~ opt(("(" ~> opt(arglist) <~ ")")) ~ adjust ^^ { case id~args~adj => ShapeInstance(id, adj) } )
     def arglist = repsep(expr, ",")
-    def primitive: Parser[Expr] =
-        ( "SQUARE"   ^^ { _ => ShapePrimitive(Prim.Square) }
-        | "TRIANGLE" ^^ { _ => ShapePrimitive(Prim.Triangle) }
-        | "CIRCLE"   ^^ { _ => ShapePrimitive(Prim.Circle) }  )
+    // TODO: Check for other primitives?
+    def primitive : Parser[ShapePrimitive] =
+        ( "SQUARE"   ^^ { _ => ShapePrimitive(Prim.Square, List()) }
+        | "TRIANGLE" ^^ { _ => ShapePrimitive(Prim.Triangle, List()) }
+        | "CIRCLE"   ^^ { _ => ShapePrimitive(Prim.Circle, List()) }  )
     def adjust = "[" ~> rep(operation) <~ "]"
-    def operation: Parser[Expr] =
+    def operation : Parser[AdjustOperation] =
         /*( "x" ~ expr | "x" ~ expr ~ expr
         | "x" ~ expr ~ expr ~ expr | "y" ~ expr | "z" ~ expr
         | "size" ~ expr | "s" ~ expr | "size" ~ expr ~ expr
@@ -84,15 +78,16 @@ class CF3 extends RegexParsers {
         (IDENT ~ rep1(expr) ^^
             { case op~args => AdjustOperation(op, args) })
         // This is a coarse way to do things. I should change IDENT to something
-        // else, and I must validate 'expr' further. 
+        // else, and I must validate 'expr' further.
+        // I should consider organizing based on number of arguments.
 }
 
-object ParseExpr extends WTF {
+object ParseExpr extends CF3 {
     /*def main(args: Array[String]) {
         println("input : "+ args(0))
         println(parseAll(shapedecl, args(0)))
     }*/
-    //def parseStr(s: String) = parseAll(shapedecl, s)
+    def parseStr(s: String) = parseAll(shapedecl, s)
     def parseStrExpr(s: String) = parseAll(expr, s)
 }
 
