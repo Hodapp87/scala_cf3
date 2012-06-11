@@ -2,16 +2,48 @@ package Tests
 
 import scala.util.parsing.combinator._
 
-// What we have is not _just_ an expression we must simplify, however, this
-// comes in at some point (as Context Free does have expressions we'll need to
-// evaluate)
+/* Still needed:
+ - 'tile' directive
+ - 'startshape' directive
+ - 'include' directive
+ - 'background' directive
+ - Loops (both old and new way?)
+   - e.g. integer * [ adjustments ] name [ adjustments ]
+   - and integer * [ adjustments ] { replacements }
+ - Both ordered (with []) and unordered (with {}) adjustments.
+ - Color adjustments
+ - All path operations
+ */
 
-// I also still need a top-level production rule for the grammar.
+// I also still need a top-level rule for the grammar.
 
 object Prim extends Enumeration {
     type Prim = Value
-    val Square, Triangle, Circle = Value}
+    val Square, Triangle, Circle = Value
+}
 import Prim._
+
+trait AST {
+    sealed abstract class Directive
+    case class Import(filename : String, namespace : String) extends Directive
+    case class Startshape(shape : String) extends Directive // plus a shape adjustment
+    case class FuncDef(name : String, body : Expr) extends Directive // plus an argument list
+    case class ShapeRule(name : String) extends Directive // plus shape instantiations and/or control structures
+    case class PathRule(name : String) extends Directive // plus path primitives and/or control structures
+    case class VarDecl(name : String, value : Expr) extends Directive // we'll have to include scope somehow too
+    case class Loop() extends Directive
+    case class IfBranch() extends Directive
+    case class Switch() extends Directive
+    case class Transform() extends Directive
+    case class Clone() extends Directive
+
+    // Configuration variables (CF:: namespace)?
+    sealed abstract class Expr
+
+    sealed abstract class Shape
+    case class ShapePrimitive(p : Prim) extends Shape // needs adjustment
+    case class ShapeInstance(name : String) extends Shape // needs adjustment
+}
 
 abstract class Expr
 case class Const(constVal : Float) extends Expr
@@ -26,6 +58,10 @@ case class ArgDecl(typename: String, name: String) extends Expr
 case class ArgList(args: Seq[ArgDecl]) extends Expr
 
 class CF3 extends RegexParsers {
+    // Directives I have yet to use fully
+    def importFile = "import"
+    def include = "include"
+    //
     val IDENT = """[a-zA-Z]([a-zA-Z0-9]|_[a-zA-Z0-9])*"""r
     val CONST = """[0-9]+(\.[0-9]+)?"""r
     def expr : Parser[Expr] =
@@ -80,6 +116,7 @@ class CF3 extends RegexParsers {
         // This is a coarse way to do things. I should change IDENT to something
         // else, and I must validate 'expr' further.
         // I should consider organizing based on number of arguments.
+        // Also, I need the color adjustents too.
 }
 
 object ParseExpr extends CF3 {
