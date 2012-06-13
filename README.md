@@ -6,7 +6,8 @@ combinators.
 
 What this wants to be:
  - A parser and renderer for Context Free, usable as a Processing sketch, and
-adding in some additional features such as realtime animation.
+adding in some additional features such as realtime animation and hardware
+rendering.
 
 References
  - Context Free: http://www.contextfreeart.org/
@@ -14,5 +15,4 @@ References
  - Paper on writing parsers in Scala which I found to be very helpful:
    http://www.labun.com/fh/ma.pdf
  - Also helpful: http://www.artima.com/pins1ed/combinator-parsing.html
- - Spde: http://spde.technically.us/Spde.html
 

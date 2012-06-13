@@ -4,8 +4,6 @@ import scala.util.parsing.combinator._
 
 /* Still needed:
  - 'tile' directive
- - 'startshape' directive
- - 'include' directive
  - 'background' directive
  - Loops (both old and new way?)
    - e.g. integer * [ adjustments ] name [ adjustments ]
@@ -25,24 +23,49 @@ import Prim._
 
 trait AST {
     sealed abstract class Directive
-    case class Import(filename : String, namespace : String) extends Directive
-    case class Startshape(shape : String) extends Directive // plus a shape adjustment
-    case class FuncDef(name : String, body : Expr) extends Directive // plus an argument list
-    case class ShapeRule(name : String) extends Directive // plus shape instantiations and/or control structures
-    case class PathRule(name : String) extends Directive // plus path primitives and/or control structures
-    case class VarDecl(name : String, value : Expr) extends Directive // we'll have to include scope somehow too
-    case class Loop() extends Directive
-    case class IfBranch() extends Directive
-    case class Switch() extends Directive
-    case class Transform() extends Directive
-    case class Clone() extends Directive
+    case class Import(filename: String, namespace : String) extends Directive
+    case class Startshape(shape: String, adj: Seq[Adjust]) extends Directive
+    case class FuncDef(name: String, body: Expr, argDecl: Seq[VarDecl]) extends Directive
+    case class ShapeDeclaration(name: String, argDecl: Seq[VarDecl], rules: Seq[ShapeRule]) extends Directive
+    case class PathDeclaration(name: String, argDecl: Seq[VarDecl], rules: Seq[PathElem]) extends Directive
+    // We might need to include scope in this one (maybe outside of the AST)
+    case class VarDecl(name: String, varType: String, value: Expr) extends Directive
+
+    // Control flow primitives
+    // (Go anywhere a shape replacement, path operation or path command can go)
+    sealed abstract class Control extends Directive
+    case class Loop() extends Control
+    case class IfBranch() extends Control
+    case class Switch() extends Control
+    case class Transform() extends Control
+    case class Clone() extends Control // is this control flow?
 
     // Configuration variables (CF:: namespace)?
-    sealed abstract class Expr
 
+    // Expressions
+    sealed abstract class Expr
+    case class Const(constVal: Float) extends Expr
+    case class ArithOperation(op: String, args: Seq[Expr]) extends Expr
+    case class FuncCall(fname: String, args: Seq[Expr]) extends Expr
+    case class Variable(name: String) extends Expr
+
+    // I really should replace 'Shape' with something else...
     sealed abstract class Shape
-    case class ShapePrimitive(p : Prim) extends Shape // needs adjustment
-    case class ShapeInstance(name : String) extends Shape // needs adjustment
+    case class ShapeRule(weight: Float, shapes: Seq[ShapeElem]) extends Shape
+    sealed abstract class ShapeElem
+    case class ShapeControl(ctl: Control, contents: Seq[ShapeElem]) extends ShapeElem
+    case class ShapePrimitive(p: Prim, adj: Seq[Adjust]) extends ShapeElem
+    case class ShapeReplacement(name: String, adj: Seq[Adjust], params: Seq[VarDecl]) extends ShapeElem
+
+    // Includes both shape and color adjustment:
+    case class Adjust(op: String, args: Seq[Expr]) extends Shape // shouldn't extend Shape, really
+
+    sealed abstract class PathElem
+    // PathControl is if you have control flow moderating several path elements:
+    case class PathControl(ctl: Control, contents: Seq[PathElem]) extends PathElem
+    case class PathOperation(name: String, flags: String, args: Seq[Expr]) extends PathElem
+    // Path commands can be stroke or fill:
+    case class PathCommand(cmd: String, flags: String, adj: Seq[Adjust]) extends PathElem
 }
 
 abstract class Expr
