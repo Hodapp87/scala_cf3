@@ -3,14 +3,13 @@ package Tests
 import scala.util.parsing.combinator._
 
 /* Still needed:
- - 'tile' directive
- - 'background' directive
  - Loops (both old and new way?)
    - e.g. integer * [ adjustments ] name [ adjustments ]
    - and integer * [ adjustments ] { replacements }
  - Both ordered (with []) and unordered (with {}) adjustments.
  - Color adjustments
  - All path operations
+ - Anything in CF:: namespace
  */
 
 // I also still need a top-level rule for the grammar.
@@ -32,8 +31,7 @@ trait AST {
     case class VarDecl(name: String, varType: String, value: Expr) extends Directive
 
     // Control flow primitives
-    // (Go anywhere a shape replacement, path operation or path command can go)
-    sealed abstract class Control extends Directive
+    sealed abstract class Control
     case class Loop() extends Control
     case class IfBranch() extends Control
     case class Switch() extends Control
@@ -45,7 +43,7 @@ trait AST {
     // Expressions
     sealed abstract class Expr
     case class Const(constVal: Float) extends Expr
-    case class ArithOperation(op: String, args: Seq[Expr]) extends Expr
+    case class ArithOperation(op: String, opnd1: Expr, opnd2: Expr) extends Expr
     case class FuncCall(fname: String, args: Seq[Expr]) extends Expr
     case class Variable(name: String) extends Expr
 
@@ -55,10 +53,11 @@ trait AST {
     sealed abstract class ShapeElem
     case class ShapeControl(ctl: Control, contents: Seq[ShapeElem]) extends ShapeElem
     case class ShapePrimitive(p: Prim, adj: Seq[Adjust]) extends ShapeElem
-    case class ShapeReplacement(name: String, adj: Seq[Adjust], params: Seq[VarDecl]) extends ShapeElem
+    case class ShapeReplacement(name: String, adj: Seq[Adjust], params: Seq[Expr]) extends ShapeElem
 
     // Includes both shape and color adjustment:
-    case class Adjust(op: String, args: Seq[Expr]) extends Shape // shouldn't extend Shape, really
+    sealed abstract class Adjustment
+    case class Adjust(op: String, args: Seq[Expr]) extends Adjustment
 
     sealed abstract class PathElem
     // PathControl is if you have control flow moderating several path elements:
@@ -68,19 +67,7 @@ trait AST {
     case class PathCommand(cmd: String, flags: String, adj: Seq[Adjust]) extends PathElem
 }
 
-abstract class Expr
-case class Const(constVal : Float) extends Expr
-case class ShapeDecl(name : String, repl : ShapeReplace) extends Expr
-case class ShapeReplace(weight : Float, shapes: Seq[Expr]) extends Expr
-case class ShapePrimitive(p: Prim, adjust: Seq[AdjustOperation]) extends Expr
-case class ShapeInstance(name: String, adjust: Seq[AdjustOperation]) extends Expr
-case class AdjustOperation(op: String, args: Seq[Expr]) extends Expr
-case class ArithOperation(op: String, operand1: Expr, operand2: Expr) extends Expr
-case class FuncCall(fname: String, args: Seq[Expr]) extends Expr
-case class ArgDecl(typename: String, name: String) extends Expr
-case class ArgList(args: Seq[ArgDecl]) extends Expr
-
-class CF3 extends RegexParsers {
+class CF3 extends RegexParsers with AST {
     // Directives I have yet to use fully
     def importFile = "import"
     def include = "include"
@@ -101,26 +88,36 @@ class CF3 extends RegexParsers {
     // they begin the same way (or something like that)
     def binop = ( "-" | "^^" | "+-" | "*" | "/" | "+" | "..." | ".." | "<="
         | ">=" | "<>" | ">" | "<" | "==" | "&&" | "^" )
-    def shapedecl : Parser[Expr] =
+    // We arbitrarily decide that 'startshape' cannot have parameters and
+    // cannot be a primitive (the Wiki doesn't specify)
+    def startshape = ("startshape" ~> IDENT ~ adjust) ^^
+        { case id~adjust => ShapeReplacement(id, adjust, List()) }
+    def shapedecl : Parser[Directive] =
         ("shape" ~> IDENT ~ opt("(" ~> argdecl <~ ")") ~ shapereplace) ^^
-            { case id~arg~replace => ShapeDecl(id, replace) }
-    def shapereplace : Parser[ShapeReplace] =
+            { case id~None~replace => ShapeDeclaration(id, List(), List(replace)) // fix this!
+              case id~Some(arg)~replace => ShapeDeclaration(id, arg, List(replace))} // fix this!
+    // FIXME: This rule will fail with percents, but they are valid weights.
+    def shapereplace : Parser[ShapeRule] =
         (opt("rule" ~> opt(CONST)) ~ ("{" ~> rep(shape) <~ "}")) ^^
-            { case None ~ s          => ShapeReplace(1.0f, s)
-              case Some(None) ~ s    => ShapeReplace(1.0f, s)
-              case Some(Some(w)) ~ s => ShapeReplace(w toFloat, s) } // FIXME: will fail with percents!
-    def argdecl : Parser[ArgList] =
-        (repsep(opt(argtype) ~ IDENT, ",") ^^
-            { l => ArgList(l.map({ case None~id    => ArgDecl("number", id)
-                                   case Some(t)~id => ArgDecl(t, id) } ))})
+            { case None ~ s          => ShapeRule(1.0f, s)
+              case Some(None) ~ s    => ShapeRule(1.0f, s)
+              case Some(Some(w)) ~ s => ShapeRule(w toFloat, s) }
+    def argdecl = repsep(vardecl, ",")
+    def vardecl = (opt(argtype) ~ IDENT) ^^
+        { case None ~ id  => VarDecl(id, "number", Const(0.0f))
+          case Some(t)~id => VarDecl(id, t, Const(0.0f)) }
     def argtype = ("number" | "natural" | "adjustment" | "shape")
     // TODO: Make this actually use adjustments:
     // TODO: Make this use arguments too!
-    def shape : Parser[Expr] =
+    def shape : Parser[ShapeElem] =
         ( primitive ~ opt(adjust) ^^
             { case prim~None => prim
               case prim~Some(adj) => ShapePrimitive(prim.p, adj) }
-        | IDENT ~ opt(("(" ~> opt(arglist) <~ ")")) ~ adjust ^^ { case id~args~adj => ShapeInstance(id, adj) } )
+        | IDENT ~ opt(("(" ~> opt(arglist) <~ ")")) ~ adjust ^^
+            { case id~None~adj => ShapeReplacement(id, adj, List())
+              case id~Some(None)~adj => ShapeReplacement(id, adj, List())
+              case id~Some(Some(arg))~adj => ShapeReplacement(id, adj, arg)
+            } )
     def arglist = repsep(expr, ",")
     // TODO: Check for other primitives?
     def primitive : Parser[ShapePrimitive] =
@@ -128,18 +125,18 @@ class CF3 extends RegexParsers {
         | "TRIANGLE" ^^ { _ => ShapePrimitive(Prim.Triangle, List()) }
         | "CIRCLE"   ^^ { _ => ShapePrimitive(Prim.Circle, List()) }  )
     def adjust = "[" ~> rep(operation) <~ "]"
-    def operation : Parser[AdjustOperation] =
+    def operation : Parser[Adjust] =
         /*( "x" ~ expr | "x" ~ expr ~ expr
         | "x" ~ expr ~ expr ~ expr | "y" ~ expr | "z" ~ expr
         | "size" ~ expr | "s" ~ expr | "size" ~ expr ~ expr
         | "s" ~ expr ~ expr | "rotate" ~ expr | "r" ~ expr
         | "flip" ~ expr | "f" ~ expr | "skew" ~ expr ~ expr ) ^^*/
         (IDENT ~ rep1(expr) ^^
-            { case op~args => AdjustOperation(op, args) })
+            { case op~args => Adjust(op, args) })
         // This is a coarse way to do things. I should change IDENT to something
         // else, and I must validate 'expr' further.
         // I should consider organizing based on number of arguments.
-        // Also, I need the color adjustents too.
+        // Also, I need the color adjustments too.
 }
 
 object ParseExpr extends CF3 {
