@@ -68,10 +68,11 @@ trait AST {
 }
 
 class CF3 extends RegexParsers with AST {
-    // Directives I have yet to use fully
-    def importFile = "import"
-    def include = "include"
-    //
+    // Start rule
+    def directive = include | startshape | shapedecl
+    def include = ("import" | "include") ~> FILENAME ^^ { Import(_, "need namespace") }
+
+    val FILENAME = """(\S+)|(\".+\")"""r
     val IDENT = """[a-zA-Z]([a-zA-Z0-9]|_[a-zA-Z0-9])*"""r
     val CONST = """[0-9]+(\.[0-9]+)?"""r
     def expr : Parser[Expr] =
@@ -90,8 +91,9 @@ class CF3 extends RegexParsers with AST {
         | ">=" | "<>" | ">" | "<" | "==" | "&&" | "^" )
     // We arbitrarily decide that 'startshape' cannot have parameters and
     // cannot be a primitive (the Wiki doesn't specify)
-    def startshape = ("startshape" ~> IDENT ~ adjust) ^^
-        { case id~adjust => ShapeReplacement(id, adjust, List()) }
+    def startshape = ("startshape" ~> IDENT ~ opt(adjust)) ^^
+        { case id~None => Startshape(id, List())
+          case id~Some(adjust) => Startshape(id, adjust) }
     def shapedecl : Parser[Directive] =
         ("shape" ~> IDENT ~ opt("(" ~> argdecl <~ ")") ~ shapereplace) ^^
             { case id~None~replace => ShapeDeclaration(id, List(), List(replace)) // fix this!
@@ -138,13 +140,3 @@ class CF3 extends RegexParsers with AST {
         // I should consider organizing based on number of arguments.
         // Also, I need the color adjustments too.
 }
-
-object ParseExpr extends CF3 {
-    /*def main(args: Array[String]) {
-        println("input : "+ args(0))
-        println(parseAll(shapedecl, args(0)))
-    }*/
-    def parseStr(s: String) = parseAll(shapedecl, s)
-    def parseStrExpr(s: String) = parseAll(expr, s)
-}
-
