@@ -66,7 +66,7 @@
           <file leaf-file-name="Parsers.scala" pinned="false" current="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/Parsers.scala">
               <provider selected="true" editor-type-id="text-editor">
-                <state line="78" column="76" selection-start="3351" selection-end="3351" vertical-scroll-proportion="0.29933482">
+                <state line="137" column="0" selection-start="6658" selection-end="6658" vertical-scroll-proportion="0.7339246">
                   <folding />
                 </state>
               </provider>
@@ -81,7 +81,8 @@
               <provider selected="true" editor-type-id="text-editor">
                 <state line="55" column="80" selection-start="2295" selection-end="2295" vertical-scroll-proportion="0.0">
                   <folding>
-                    <marker date="1341421535000" expanded="true" signature="3403:3507" placeholder="{...}" />
+                    <marker date="1341425086000" expanded="true" signature="3403:3507" placeholder="{...}" />
+                    <marker date="1341425086000" expanded="true" signature="6658:6702" placeholder="/.../" />
                   </folding>
                 </state>
               </provider>
@@ -90,7 +91,7 @@
           <file leaf-file-name="ParserTest.scala" pinned="false" current="true" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/ParserTest.scala">
               <provider selected="true" editor-type-id="text-editor">
-                <state line="33" column="52" selection-start="849" selection-end="849" vertical-scroll-proportion="0.80818963">
+                <state line="33" column="45" selection-start="1020" selection-end="1020" vertical-scroll-proportion="0.8060345">
                   <folding />
                 </state>
               </provider>
@@ -511,14 +512,15 @@
       <provider selected="true" editor-type-id="text-editor">
         <state line="55" column="80" selection-start="2295" selection-end="2295" vertical-scroll-proportion="0.0">
           <folding>
-            <marker date="1341421535000" expanded="true" signature="3403:3507" placeholder="{...}" />
+            <marker date="1341425086000" expanded="true" signature="3403:3507" placeholder="{...}" />
+            <marker date="1341425086000" expanded="true" signature="6658:6702" placeholder="/.../" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/ParserTest.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state line="33" column="52" selection-start="849" selection-end="849" vertical-scroll-proportion="0.80818963">
+        <state line="33" column="45" selection-start="1020" selection-end="1020" vertical-scroll-proportion="0.8060345">
           <folding />
         </state>
       </provider>

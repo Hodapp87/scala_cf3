@@ -82,11 +82,11 @@ class CF3 extends RegexParsers with AST {
                 { case (acc, op ~ operand) => ArithOperation(op, acc, operand) } })
     def factor : Parser[Expr] =
         (CONST ^^ {x => Const(x toFloat)}
+        |"(" ~> expr <~ ")"   // 'expr' is already Parser[Expr]
         |IDENT ~ ("(" ~> repsep(expr, ",") <~ ")") ^^ { case f~args => FuncCall(f, args)}
-        |IDENT ^^ {x => Variable(x)}
-        |"(" ~> expr <~ ")")   // 'expr' is already Parser[Expr]
+        |IDENT ^^ {x => Variable(x)})
         // N.B. variable reference must proceed function call here or a
-        // function call will improperly parse as a variable.
+        // function call will improperly parse as a variable
     def unop = ( "-" )
     // Yes, order matters here! Smaller items should go after larger ones if
     // they begin the same way (or something like that)
@@ -131,15 +131,9 @@ class CF3 extends RegexParsers with AST {
         | "CIRCLE"   ^^ { _ => ShapePrimitive(Prim.Circle, List()) }  )
     def adjust = "[" ~> rep(operation) <~ "]"
     def operation : Parser[Adjust] =
-        /*( "x" ~ expr | "x" ~ expr ~ expr
-        | "x" ~ expr ~ expr ~ expr | "y" ~ expr | "z" ~ expr
-        | "size" ~ expr | "s" ~ expr | "size" ~ expr ~ expr
-        | "s" ~ expr ~ expr | "rotate" ~ expr | "r" ~ expr
-        | "flip" ~ expr | "f" ~ expr | "skew" ~ expr ~ expr ) ^^*/
-        (IDENT ~ rep1(expr) ^^
-            { case op~args => Adjust(op, args) })
-        // This is a coarse way to do things. I should change IDENT to something
-        // else, and I must validate 'expr' further.
-        // I should consider organizing based on number of arguments.
-        // Also, I need the color adjustments too.
+        ( ((("size" | "s") ~ repN(3, expr))
+        | (("size" | "s" | "skew") ~ repN(2, expr))
+        | (("x"|"y"|"z"|"rotate"|"r"|"flip"|"f"|"size"|"s") ~ repN(1, expr)))
+            ^^ { case op~args => Adjust(op, args)} )
+        // I need the color adjustments too.
 }
