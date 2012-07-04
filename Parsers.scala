@@ -82,8 +82,11 @@ class CF3 extends RegexParsers with AST {
         |unop~factor ^^ { case op ~ f => ArithOperation(op, Const(0.0f), f)})
     def factor : Parser[Expr] =
         (CONST ^^ {x => Const(x toFloat)}
-        |"(" ~> expr <~ ")"
-        |IDENT ~ ("(" ~> repsep(expr, ",") <~ ")") ^^ { case f~args => FuncCall(f, args)})
+        |IDENT ~ ("(" ~> repsep(expr, ",") <~ ")") ^^ { case f~args => FuncCall(f, args)}
+        |IDENT ^^ {x => Variable(x)}
+        |"(" ~> expr <~ ")")   // 'expr' is already Parser[Expr]
+        // N.B. variable reference must proceed function call here or a
+        // function call will improperly parse as a variable.
     def unop = ( "-" )
     // Yes, order matters here! Smaller items should go after larger ones if
     // they begin the same way (or something like that)
