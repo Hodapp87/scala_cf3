@@ -76,10 +76,10 @@ class CF3 extends RegexParsers with AST {
     val IDENT = """[a-zA-Z]([a-zA-Z0-9]|_[a-zA-Z0-9])*"""r
     val CONST = """[0-9]+(\.[0-9]+)?"""r
     def expr : Parser[Expr] =
-        (factor~rep(binop~factor) ^^
+        (unop~expr ^^ { case op ~ exp => ArithOperation(op, Const(0.0f), exp)}
+        |factor~rep(binop~factor) ^^
             { case f~l => (f /: l)
-                { case (acc, op ~ operand) => ArithOperation(op, acc, operand) } }
-        |unop~factor ^^ { case op ~ f => ArithOperation(op, Const(0.0f), f)})
+                { case (acc, op ~ operand) => ArithOperation(op, acc, operand) } })
     def factor : Parser[Expr] =
         (CONST ^^ {x => Const(x toFloat)}
         |IDENT ~ ("(" ~> repsep(expr, ",") <~ ")") ^^ { case f~args => FuncCall(f, args)}

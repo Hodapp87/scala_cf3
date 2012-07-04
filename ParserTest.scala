@@ -23,14 +23,16 @@ object ParserTest extends CF3 {
             "1.0",
             "1.0",
             "1.0 - 2.0",
+            "-2.0 + 1.0",
             "1.0 / 2.0 + a",
+            "a + cos((-4.0) + b)",
             "a + cos(-4.0 + b)"
         ).foreach { str => {
             print("Parsing '" + str + "'...")
             parseAll(expr, str) match {
                 case Success(exp: Expr, _) => println(exp)
-                case Error(msg, _) => println("Error: " + msg)
-                case Failure(msg, _) => println("Failure: " + msg)
+                case Error(msg, _) => println("ERROR: " + msg)
+                case Failure(msg, _) => println("FAILURE: " + msg)
                 case _ => println("Error, unexpected result!")
             }
         }}
