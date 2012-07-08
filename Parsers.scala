@@ -44,8 +44,17 @@ trait AST {
     sealed abstract class Expr
     case class Const(constVal: Float) extends Expr
     case class ArithOperation(op: String, opnd1: Expr, opnd2: Expr) extends Expr
-    case class FuncCall(fname: String, args: Seq[Expr]) extends Expr
     case class Variable(name: String) extends Expr
+    case class FuncCall(fname: String, args: Seq[Expr], captureOuter: Boolean) extends Expr
+    // captureOuter means: call the function, but apply the arguments that the
+    // calling function had (this assumes that the signatures match). If it's
+    // true, 'args' is ignored.
+    // The curve(=) call in this example means this:
+    /* shape curve(number shrink, number turn) {
+          SQUARE []
+          curve(=) [[y 0.5 r turn s shrink y 0.5]]
+       }
+    */
 
     // I really should replace 'Shape' with something else...
     sealed abstract class Shape
@@ -53,7 +62,11 @@ trait AST {
     sealed abstract class ShapeElem
     case class ShapeControl(ctl: Control, contents: Seq[ShapeElem]) extends ShapeElem
     case class ShapePrimitive(p: Prim, adj: Seq[Adjust]) extends ShapeElem
-    case class ShapeReplacement(name: String, adj: Seq[Adjust], params: Seq[Expr]) extends ShapeElem
+    case class ShapeReplacement(name: String,
+                                adj: Seq[Adjust],
+                                params: Seq[Expr],
+                                captureOuter: Boolean) extends ShapeElem
+    // captureOuter here means the same thing as in FuncCall
 
     // Includes both shape and color adjustment:
     sealed abstract class Adjustment
@@ -75,15 +88,18 @@ class CF3 extends RegexParsers with AST {
     val FILENAME = """(\S+)|(\".+\")"""r
     val IDENT = """[a-zA-Z]([a-zA-Z0-9]|_[a-zA-Z0-9])*"""r
     val CONST = """[0-9]+(\.[0-9]+)?"""r
+
     def expr : Parser[Expr] =
         (unop~expr ^^ { case op ~ exp => ArithOperation(op, Const(0.0f), exp)}
         |factor~rep(binop~factor) ^^
             { case f~l => (f /: l)
                 { case (acc, op ~ operand) => ArithOperation(op, acc, operand) } })
+    // FIXME: There is no proper order of operations here!
     def factor : Parser[Expr] =
         (CONST ^^ {x => Const(x toFloat)}
         |"(" ~> expr <~ ")"   // 'expr' is already Parser[Expr]
-        |IDENT ~ ("(" ~> repsep(expr, ",") <~ ")") ^^ { case f~args => FuncCall(f, args)}
+        |IDENT ~ ("(" ~> "=" <~ ")") ^^ { case f~args => FuncCall(f, List(), true)}
+        |IDENT ~ ("(" ~> repsep(expr, ",") <~ ")") ^^ { case f~args => FuncCall(f, args, false)}
         |IDENT ^^ {x => Variable(x)})
         // N.B. variable reference must proceed function call here or a
         // function call will improperly parse as a variable
@@ -103,10 +119,13 @@ class CF3 extends RegexParsers with AST {
               case id~Some(arg)~replace => ShapeDeclaration(id, arg, List(replace))} // fix this!
     // FIXME: This rule will fail with percents, but they are valid weights.
     def shapereplace : Parser[ShapeRule] =
-        (opt("rule" ~> opt(CONST)) ~ ("{" ~> rep(shape) <~ "}")) ^^
+        (opt("rule" ~> opt(ruleweight)) ~ ("{" ~> rep(shape) <~ "}")) ^^
             { case None ~ s          => ShapeRule(1.0f, s)
               case Some(None) ~ s    => ShapeRule(1.0f, s)
-              case Some(Some(w)) ~ s => ShapeRule(w toFloat, s) }
+              case Some(Some(w)) ~ s => ShapeRule(w, s) }
+    def ruleweight : Parser[Float] = (CONST~opt("%") ^^
+        { case s~None => s toFloat
+          case s~Some(_) => (s toFloat)/100.0f }) // optional percent sign is valid
     def argdecl = repsep(vardecl, ",")
     def vardecl = (opt(argtype) ~ IDENT) ^^
         { case None ~ id  => VarDecl(id, "number", Const(0.0f))
@@ -118,10 +137,14 @@ class CF3 extends RegexParsers with AST {
         ( primitive ~ opt(adjust) ^^
             { case prim~None => prim
               case prim~Some(adj) => ShapePrimitive(prim.p, adj) }
+        // Instantiate shape with parameters captured from the calling scope:
+        | IDENT ~ opt(("(" ~> "=" <~ ")")) ~ adjust ^^
+            { case id ~ _ ~ adj => ShapeReplacement(id, adj, List(), true) }
+        // Instantiate shape, optionally with explicit parameters
         | IDENT ~ opt(("(" ~> opt(arglist) <~ ")")) ~ adjust ^^
-            { case id~None~adj => ShapeReplacement(id, adj, List())
-              case id~Some(None)~adj => ShapeReplacement(id, adj, List())
-              case id~Some(Some(arg))~adj => ShapeReplacement(id, adj, arg)
+            { case id~None~adj => ShapeReplacement(id, adj, List(), false)
+              case id~Some(None)~adj => ShapeReplacement(id, adj, List(), false)
+              case id~Some(Some(arg))~adj => ShapeReplacement(id, adj, arg, false)
             } )
     def arglist = repsep(expr, ",")
     // TODO: Check for other primitives?

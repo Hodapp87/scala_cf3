@@ -32,7 +32,15 @@ object ParserTest extends CF3 {
             "startshape FOO[ size 1 2 3 ]",
             "startshape FOO[ size 1 2 3 x (1+2)]",
             "startshape FOO[ size 1 2 3 x 1+2]",
-            "startshape FOO[]"
+            "startshape FOO[]",
+            "shape TestShape { }",
+            "shape TestShape { SQUARE [] }",
+            "shape TestShape rule { SQUARE [] }",
+            "shape TestShape rule 0.01 { SQUARE [] }",
+            "shape TestShape rule 2% { SQUARE [] }",
+            "shape TestShape rule 0.1% { }",
+            //"rule BLAH { }", // should fail
+            "shape curve(number shrink, number turn) { SQUARE [] curve(=) [y 0.5 r turn s shrink y 0.5] }"
         ).foreach { str => printParseMsg(str, parseAll(directive, str)) }
     }
 
@@ -40,15 +48,28 @@ object ParserTest extends CF3 {
         print("Parsing '" + str + "': ")
         result match {
             case Success(exp: Any, _) => println(exp)
-            case Error(msg, _) => println("ERROR: " + msg)
-            case Failure(msg, _) => println("FAILURE: " + msg)
-            case _ => println("Error, unexpected result!")
+            case Error(msg, _) => println("ERROR: " + msg); throw new Exception(msg)
+            case Failure(msg, _) => println("FAILURE: " + msg); throw new Exception(msg)
+            case _ => throw new Exception("Unexpected type in ParseResult!")
         }
     }
 
 }
 
 // TODO:
-// 1. Fix the expression parsing - it has some kinks.
-// 2. Start adding in examples from the Context Free wiki to the ParserTest
+// 2. Keep adding in examples from the Context Free wiki to the ParserTest
 // object. See if they parse!
+// 3. Is this valid yet?
+/*
+shape aShape
+rule 50% {  // probability is 0.5
+    SQUARE []
+}
+rule {      // probability is 1 * (1 - 0.5) / (1 + 2), or 1/6
+    CIRCLE []
+}
+rule 2 {    // probability is 2 * (1 - 0.5) / (1 + 2), or 1/3
+    TRIANGLE []
+}
+*/
+// 4. Test this damn code as a JAR in Processing!
