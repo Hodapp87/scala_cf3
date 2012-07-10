@@ -54,6 +54,15 @@ object ParserTest extends CF3 {
         }
     }
 
+    // This call is mostly for Java's sake
+    def getDirective(str: String): Directive = {
+        parseAll(directive, str) match {
+            case Success(dir: Directive, _) => dir
+            case Error(msg, _) => throw new Exception(msg)
+            case Failure(msg, _) => throw new Exception(msg)
+            case _ => throw new Exception("Unexpected type in ParseResult!")
+        }
+    }
 }
 
 // TODO:
