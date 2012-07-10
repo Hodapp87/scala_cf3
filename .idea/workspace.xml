@@ -1,11 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="ArtifactsWorkspaceSettings">
+    <artifacts-to-build>
+      <artifact name="Scala_cf3:jar" />
+    </artifacts-to-build>
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="d6aa5ab4-f1b3-4927-88a8-835cd290804f" name="Default" comment="">
-      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/JavaTest.java" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/.idea/artifacts/Scala_cf3_jar.xml" />
+      <change type="NEW" beforePath="" afterPath="$PROJECT_DIR$/META-INF/MANIFEST.MF" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/ParserTest.scala" afterPath="$PROJECT_DIR$/ParserTest.scala" />
     </list>
     <ignored path="scala_cf3.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -65,7 +69,7 @@
     <splitter split-orientation="horizontal" split-proportion="0.5">
       <split-first>
         <leaf>
-          <file leaf-file-name="Parsers.scala" pinned="false" current="true" current-in-tab="true">
+          <file leaf-file-name="Parsers.scala" pinned="false" current="false" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/Parsers.scala">
               <provider selected="true" editor-type-id="text-editor">
                 <state line="162" column="0" selection-start="7906" selection-end="7906" vertical-scroll-proportion="0.82071716">
@@ -87,10 +91,10 @@
               </provider>
             </entry>
           </file>
-          <file leaf-file-name="JavaTest.java" pinned="false" current="false" current-in-tab="true">
+          <file leaf-file-name="JavaTest.java" pinned="false" current="true" current-in-tab="true">
             <entry file="file://$PROJECT_DIR$/JavaTest.java">
               <provider selected="true" editor-type-id="text-editor">
-                <state line="31" column="33" selection-start="1227" selection-end="1227" vertical-scroll-proportion="0.9262948">
+                <state line="10" column="0" selection-start="248" selection-end="1509" vertical-scroll-proportion="0.059760958">
                   <folding>
                     <element signature="imports" expanded="true" />
                   </folding>
@@ -212,17 +216,24 @@
     </panes>
   </component>
   <component name="PropertiesComponent">
+    <property name="GenerateAntBuildDialog.generateIdeaHomeProperty" value="false" />
     <property name="GoToFile.includeJavaFiles" value="false" />
-    <property name="project.structure.last.edited" value="Modules" />
+    <property name="project.structure.last.edited" value="Artifacts" />
     <property name="project.structure.proportion" value="0.15" />
     <property name="options.splitter.main.proportions" value="0.3" />
+    <property name="GenerateAntBuildDialog.generateSingleFile" value="false" />
     <property name="options.lastSelected" value="preferences.sourceCode.Scala" />
     <property name="MemberChooser.sorted" value="false" />
     <property name="recentsLimit" value="5" />
+    <property name="GenerateAntBuildDialog.inclineRuntiemClasspath" value="false" />
+    <property name="GenerateAntBuildDialog.forceTargetJdk" value="true" />
     <property name="project.structure.side.proportion" value="0.2" />
+    <property name="GenerateAntBuildDialog.outputFileNameProperty" value="scala_cf3" />
     <property name="MemberChooser.copyJavadoc" value="false" />
+    <property name="GenerateAntBuildDialog.enableUiFormCompile" value="true" />
     <property name="GoToClass.toSaveIncludeLibraries" value="false" />
     <property name="MemberChooser.showClasses" value="true" />
+    <property name="GenerateAntBuildDialog.backupFiles" value="true" />
     <property name="GoToClass.includeLibraries" value="false" />
     <property name="dynamic.classpath" value="false" />
     <property name="options.splitter.details.proportions" value="0.2" />
@@ -548,19 +559,19 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/JavaTest.java">
-      <provider selected="true" editor-type-id="text-editor">
-        <state line="31" column="33" selection-start="1227" selection-end="1227" vertical-scroll-proportion="0.9262948">
-          <folding>
-            <element signature="imports" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/Parsers.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state line="162" column="0" selection-start="7906" selection-end="7906" vertical-scroll-proportion="0.82071716">
           <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/JavaTest.java">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="10" column="0" selection-start="248" selection-end="1509" vertical-scroll-proportion="0.059760958">
+          <folding>
+            <element signature="imports" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -570,10 +581,12 @@
       <state key="ArtifactsStructureConfigurable.UI">
         <settings>
           <artifact-editor />
+          <last-edited>Scala_cf3:jar</last-edited>
           <splitter-proportions>
             <option name="proportions">
               <list>
                 <option value="0.2" />
+                <option value="0.5" />
               </list>
             </option>
           </splitter-proportions>
@@ -616,7 +629,7 @@
       </state>
       <state key="ModuleStructureConfigurable.UI">
         <settings>
-          <last-edited>Scala|Scala_cf3</last-edited>
+          <last-edited>Scala_cf3</last-edited>
           <splitter-proportions>
             <option name="proportions">
               <list>
