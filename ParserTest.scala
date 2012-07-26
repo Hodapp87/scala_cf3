@@ -32,6 +32,7 @@ object ParserTest extends CF3 {
             "startshape FOO[ size 1 2 3 ]",
             "startshape FOO[ size 1 2 3 x (1+2)]",
             "startshape FOO[ size 1 2 3 x 1+2]",
+            "startshape FOO{ size 1 2 3 x 1+2 }",
             "startshape FOO[]",
             "shape TestShape { }",
             "shape TestShape { SQUARE [] }",
@@ -81,4 +82,4 @@ rule 2 {    // probability is 2 * (1 - 0.5) / (1 + 2), or 1/3
     TRIANGLE []
 }
 */
-// 4. Test this damn code as a JAR in Processing!
+// 4. *done* Test this damn code as a JAR in Processing!

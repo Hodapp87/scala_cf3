@@ -70,14 +70,23 @@ trait AST {
 
     // Includes both shape and color adjustment:
     sealed abstract class Adjustment
-    case class Adjust(op: String, args: Seq[Expr]) extends Adjustment
+    case class Adjust(op: String, args: Seq[Expr], reorder: Boolean) extends Adjustment
+    // if 'reorder' is true, then this adjustment if it is within a group is
+    // reordered to x, y, rotate, size, skew, & flip, dropping duplicates.
 
     sealed abstract class PathElem
     // PathControl is if you have control flow moderating several path elements:
     case class PathControl(ctl: Control, contents: Seq[PathElem]) extends PathElem
-    case class PathOperation(name: String, flags: String, args: Seq[Expr]) extends PathElem
+    //case class PathOperation(name: String, flags: String, args: Seq[Expr]) extends PathElem
     // Path commands can be stroke or fill:
     case class PathCommand(cmd: String, flags: String, adj: Seq[Adjust]) extends PathElem
+
+    sealed abstract class PathOperation extends PathElem
+    case class PathMove(x: Expr, y: Expr, rel: Boolean) extends PathElem
+    case class PathLine(x: Expr, y: Expr, rel: Boolean) extends PathElem
+    case class PathArc(x: Expr, y: Expr, rx: Expr, ry: Expr, ang: Expr, params: Seq[String], rel: Boolean) extends PathElem
+    case class PathCurve(x: Expr, y: Expr, x1: Expr, y1: Expr, x2: Expr, y2: Expr) extends PathElem
+    case class PathClosePoly(align: Boolean) extends PathElem
 }
 
 class CF3 extends RegexParsers with AST {
@@ -117,7 +126,6 @@ class CF3 extends RegexParsers with AST {
         ("shape" ~> IDENT ~ opt("(" ~> argdecl <~ ")") ~ shapereplace) ^^
             { case id~None~replace => ShapeDeclaration(id, List(), List(replace)) // fix this!
               case id~Some(arg)~replace => ShapeDeclaration(id, arg, List(replace))} // fix this!
-    // FIXME: This rule will fail with percents, but they are valid weights.
     def shapereplace : Parser[ShapeRule] =
         (opt("rule" ~> opt(ruleweight)) ~ ("{" ~> rep(shape) <~ "}")) ^^
             { case None ~ s          => ShapeRule(1.0f, s)
@@ -134,7 +142,7 @@ class CF3 extends RegexParsers with AST {
     // TODO: Make this actually use adjustments:
     // TODO: Make this use arguments too!
     def shape : Parser[ShapeElem] =
-        ( primitive ~ opt(adjust) ^^
+        ( shapePrim ~ opt(adjust) ^^
             { case prim~None => prim
               case prim~Some(adj) => ShapePrimitive(prim.p, adj) }
         // Instantiate shape with parameters captured from the calling scope:
@@ -146,17 +154,41 @@ class CF3 extends RegexParsers with AST {
               case id~Some(None)~adj => ShapeReplacement(id, adj, List(), false)
               case id~Some(Some(arg))~adj => ShapeReplacement(id, adj, arg, false)
             } )
-    def arglist = repsep(expr, ",")
     // TODO: Check for other primitives?
-    def primitive : Parser[ShapePrimitive] =
+    def shapePrim : Parser[ShapePrimitive] =
         ( "SQUARE"   ^^ { _ => ShapePrimitive(Prim.Square, List()) }
         | "TRIANGLE" ^^ { _ => ShapePrimitive(Prim.Triangle, List()) }
         | "CIRCLE"   ^^ { _ => ShapePrimitive(Prim.Circle, List()) }  )
-    def adjust = "[" ~> rep(operation) <~ "]"
+    // this is clunky; we can't set the reorder tag without some context:
+    def adjust = ( "{" ~> rep(operation) <~ "}" ^^
+                        { _.map(adj => Adjust(adj.op, adj.args, true)) }
+                 | "[" ~> rep(operation) <~ "]" )
+    def arglist = repsep(expr, ",")
     def operation : Parser[Adjust] =
         ( ((("size" | "s") ~ repN(3, expr))
         | (("size" | "s" | "skew") ~ repN(2, expr))
-        | (("x"|"y"|"z"|"rotate"|"r"|"flip"|"f"|"size"|"s") ~ repN(1, expr)))
-            ^^ { case op~args => Adjust(op, args)} )
-        // I need the color adjustments too.
+        | (("x"|"y"|"z"|"rotate"|"r"|"flip"|"f"|"size"|"s") ~ repN(1, expr))
+        | (("hue" | "h" | "saturation" | "sat") ~ repN(1, expr))
+        | (("brightness" | "b" | "alpha" | "a") ~ repN(1, expr))
+        | (("lhue" | "lh" | "lsaturation" | "lsat") ~ repN(1, expr))
+        | (("lbrightness" | "lb" | "lalpha" | "la") ~ repN(1, expr)))
+            ^^ { case op~args => Adjust(op, args, false)} )
+    def pathMove =
+        (operation("MOVETO", List("x", "y")) ^^ { case x~y => PathMove(x,y,false)}
+        |operation("MOVEREL", List("x", "y")) ^^ { case x~y => PathMove(x,y,true)})
+    def pathLine =
+        (operation("LINETO", List("x", "y")) ^^ { case x~y => PathLine(x,y,false)}
+        |operation("LINEREL", List("x", "y")) ^^ { case x~y => PathLine(x,y,true)})
+    def pathOp(name: String, argsExp: Seq[String]) = {
+        // TODO:
+        // 1. Add an argument to this for a function like PathLine & PathMove
+        // 2. Make this match on name+"TO", name+"REL" and use partial eval to
+        // return a function with its last parameter set to true or false.
+    }
+    // 'operation' matches an expression like "name { arg1 value arg2 value }"
+    // with arg1, arg2, etc. from 'argsExp'; it returns name~value~value...
+    def operation(name: String, argsExp: Seq[String]) = {
+        // Fails on empty lists. (Why is left as an exercise to the reader.)
+        name ~> ("{" ~> (argsExp.map { _ ~> expr }.reduceLeft(_ ~ _)) <~ "}")
+    }
 }
